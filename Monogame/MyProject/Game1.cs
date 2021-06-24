@@ -13,12 +13,11 @@ namespace MyProject
     private Rectangle renderRectangle;
     private Texture2D _texture;
 
-    // !Paddle
-    private Rectangle[] paddle;
+    private Paddle[] paddles;
+    private int[] scores;
+    private SpriteFont font;
+    private Ball ball;
 
-    // !Ball
-    private Rectangle ball;
-    private Point ballVelocity;
     private bool lastPointSide = true;
     private readonly Random rand;
 
@@ -35,15 +34,17 @@ namespace MyProject
 
       gameState = GameState.Idle;
       rand = new Random();
+
+      paddles = new Paddle[2];
     }
 
     protected override void Initialize()
     {
       // TODO: Add your initialization logic here
       // !Storlek
-      doubleBuffer = new RenderTarget2D(GraphicsDevice, 720, 480);
-      _graphics.PreferredBackBufferHeight = 720;
-      _graphics.PreferredBackBufferWidth = 720;
+      doubleBuffer = new RenderTarget2D(GraphicsDevice, 640, 480);
+      _graphics.PreferredBackBufferWidth = 640;
+      _graphics.PreferredBackBufferHeight = 480;
 
       _graphics.IsFullScreen = false;
 
@@ -52,7 +53,8 @@ namespace MyProject
 
       Window.ClientSizeChanged += OnWindowSizeChange;
       OnWindowSizeChange(null, null);
-      ResetBall();
+
+      ball = new Ball(rand, lastPointSide);
 
       base.Initialize();
     }
@@ -65,6 +67,8 @@ namespace MyProject
       Color[] data = new Color[1];
       data[0] = Color.White;
       _texture.SetData(data);
+
+      font = Content.Load<SpriteFont>("font");
     }
 
     protected override void Update(GameTime gameTime)
@@ -78,33 +82,46 @@ namespace MyProject
       switch (gameState)
       {
         case GameState.Idle:
-          MoveBall(true);
-          // gameState = GameState.Start;
+          ball.Move(true);
+          gameState = GameState.Start;
           break;
 
         case GameState.Start:
-          ResetBall();
+          ball = new Ball(rand, lastPointSide);
+          paddles[0] = new Paddle(false);
+          paddles[1] = new Paddle(true);
+          scores = new int[2];
           gameState = GameState.Play;
           break;
 
         case GameState.Play:
-          int scored = MoveBall(false);
+          (int scored, bool bounced) = ball.Move(false);
 
-          if (scored == 1)
-          {
-            lastPointSide = true;
-            gameState = GameState.CheckEnd;
-          }
+          paddles[0].AIMove(ball);
+          paddles[1].AIMove(ball);
 
-          else if (scored == 1)
-          {
-            lastPointSide = false;
-            gameState = GameState.CheckEnd;
-          }
+          var hit = paddles[0].CollisionCheck(ball);
+          hit |= paddles[1].CollisionCheck(ball);
+
+          if (hit) return;
+
+          if (scored == 0) return;
+
+          gameState = GameState.CheckEnd;
+          lastPointSide = scored == 1;
+          int index = lastPointSide ? 0 : 1;
+          scores[index]++;
+
           break;
 
         case GameState.CheckEnd:
-          ResetBall();
+          ball = new Ball(rand, lastPointSide);
+          if (scores[0] > 9 || scores[1] > 9)
+          {
+            gameState = GameState.Idle;
+            return;
+          }
+
           gameState = GameState.Play;
           break;
 
@@ -130,14 +147,20 @@ namespace MyProject
         switch (gameState)
         {
           case GameState.Idle:
-            _spriteBatch.Draw(_texture, ball, Color.White);
+            _spriteBatch.Draw(_texture, ball.box, Color.White);
             break;
           case GameState.Start:
             break;
 
           case GameState.Play:
           case GameState.CheckEnd:
-            _spriteBatch.Draw(_texture, ball, Color.White);
+            _spriteBatch.Draw(_texture, ball.box, Color.White);
+
+            _spriteBatch.Draw(_texture, paddles[0].box, Color.White);
+            _spriteBatch.Draw(_texture, paddles[1].box, Color.White);
+
+            // _spriteBatch.DrawString(font, scores[0].ToString(), new Vector2(64, 0), Color.White);
+            // _spriteBatch.DrawString(font, scores[1].ToString(), new Vector2(doubleBuffer.Width - 10, 10), Color.White);
             break;
 
           default:
@@ -158,64 +181,8 @@ namespace MyProject
       base.Draw(gameTime);
     }
 
-    // !Paddle
-    private void AIPaddle(int index)
-    {
-      int delta = ball.Y + ball.Height / 2 - (paddle[index].Y + paddle[index].Height / 2);
-      paddle[index].Y += delta;
-    }
-
-    // !Ball
-    private void ResetBall()
-    {
-      int minSpeed = 2;
-      int maxSpeed = 7;
-
-      ball = new Rectangle(doubleBuffer.Width / 2 - 4, doubleBuffer.Height / 2 - 4, 8, 8);
-      ballVelocity = new Point(lastPointSide ? rand.Next(minSpeed, maxSpeed) : -rand.Next(minSpeed, maxSpeed), rand.Next() > int.MaxValue ? rand.Next(minSpeed, maxSpeed) : -rand.Next(minSpeed, maxSpeed));
-    }
-
-    public int MoveBall(bool bounce)
-    {
-      ball.X += ballVelocity.X;
-      ball.Y += ballVelocity.Y;
-
-      if (ball.Y < 0)
-      {
-        ball.Y = -ball.Y;
-        ballVelocity.Y = -ballVelocity.Y;
-      }
-
-      if (ball.Y + ball.Height > doubleBuffer.Height)
-      {
-        ball.Y = doubleBuffer.Height - ball.Height - (ball.Y + ball.Height - doubleBuffer.Height);
-        ballVelocity.Y = -ballVelocity.Y;
-      }
-
-      if (ball.X < 0)
-      {
-        if (bounce)
-        {
-          ball.X = -ball.X;
-          ballVelocity.X = -ballVelocity.X;
-        }
-        else return -1;
-      }
-
-      if (ball.X + ball.Width > doubleBuffer.Width)
-      {
-        if (bounce)
-        {
-          ball.X = doubleBuffer.Width - ball.Width - (ball.X + ball.Width - doubleBuffer.Width);
-          ballVelocity.X = -ballVelocity.X;
-        }
-        else return 1;
-      }
-      return 0;
-    }
-
     // !Game Size
-    private void OnWindowSizeChange(object sender, EventArgs e)
+    void OnWindowSizeChange(object sender, EventArgs e)
     {
       // !Game saze resolution when resizing game
       float width = Window.ClientBounds.Width;

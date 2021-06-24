@@ -21,3 +21,4 @@ C:\Users\jingxiang.xu\Documents\GitHub\Xaml\Monogame\MyProject\obj\Debug\netcore
 C:\Users\jingxiang.xu\Documents\GitHub\Xaml\Monogame\MyProject\obj\Debug\netcoreapp3.1\MyProject.dll
 C:\Users\jingxiang.xu\Documents\GitHub\Xaml\Monogame\MyProject\obj\Debug\netcoreapp3.1\MyProject.pdb
 C:\Users\jingxiang.xu\Documents\GitHub\Xaml\Monogame\MyProject\obj\Debug\netcoreapp3.1\MyProject.genruntimeconfig.cache
+C:\Users\jingxiang.xu\Documents\GitHub\Xaml\Monogame\MyProject\bin\Debug\netcoreapp3.1\Content\Font.xnb
